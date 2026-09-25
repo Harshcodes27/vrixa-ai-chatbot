@@ -54,4 +54,5 @@ yarn-error.log*
 # System & Scratch Artifacts
 .system_generated/
 scratch/
+cloudflared.exe
 
