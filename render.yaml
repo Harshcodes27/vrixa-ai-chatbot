@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: vrixa-ai-assistant
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn deployed_router:app --app-dir "New folder" --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.8
