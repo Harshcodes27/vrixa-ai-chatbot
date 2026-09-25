@@ -1128,10 +1128,22 @@ async def process_chat(req: ChatRequest):
                 if known_name else
                 " The user's name is unknown; ask naturally when it would help, without assuming one."
             )
+            # Add Harsh's profile and verified friends data to AI context so it never hallucinates
+            user_k = load_user_knowledge()
+            friends_ctx = ""
+            friends_dict = user_k.get("friends_data", {})
+            if friends_dict:
+                f_entries = [f"- {v.get('name', k.title())}: Birthday: {v.get('dob', 'Unknown')}, Location: {v.get('location', 'Unknown')}" for k, v in friends_dict.items()]
+                friends_ctx = "\nHarsh's verified friends list:\n" + "\n".join(f_entries)
+
+            creator_ctx = "\nCreator & User Information:\n- Creator/Owner: Harsh (B.Tech CSE at NGF College of Engineering & Technology, Palwal, Roll No: 23035004049, DOB: 27 September 2005, Location: Palwal)."
+
             sys_inst = (
-                f"You are VRIXA, an intelligent, conversational AI assistant. Current time: {now_str}. "
-                "Rules: 1. Be natural, warm, and helpful. 2. Match language (Hinglish/English). 3. Keep responses clear and complete — always finish every sentence and word properly. 4. Use appropriate emojis. 5. Answer questions about Vrixa herself when asked. 6. Never mention providers, quotas, API errors, routing, or debugging."
+                f"You are VRIXA, an intelligent, conversational AI assistant created by Harsh. Current time: {now_str}. "
+                "Rules: 1. Be natural, warm, and helpful. 2. Match language (Hinglish/English). 3. Keep responses clear and complete — always finish every sentence and word properly. 4. Use appropriate emojis. 5. Answer questions about Vrixa herself when asked. 6. Never mention providers, quotas, API errors, routing, or debugging. 7. For questions about Harsh or his friends, strictly refer to the verified facts provided below."
                 + name_guidance
+                + creator_ctx
+                + friends_ctx
             )
 
             # Build custom_keys mapping
