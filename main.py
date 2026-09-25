@@ -14,6 +14,9 @@ try:
 except Exception:
     pass
 
+# Import the ASGI application from root app.py (works for local and cloud)
+from app import app
+
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -24,26 +27,31 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
-def open_browser():
+def open_browser(port):
     time.sleep(1.5)
-    webbrowser.open("http://127.0.0.1:8000")
+    try:
+        webbrowser.open(f"http://127.0.0.1:{port}")
+    except Exception:
+        pass
 
 if __name__ == "__main__":
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    app_dir = os.path.join(base_dir, "New folder")
-    os.chdir(app_dir)
-    sys.path.insert(0, app_dir)
-
+    # Support dynamic PORT for Render/cloud deployments and default to 8000 locally
+    port = int(os.environ.get("PORT", 8000))
+    host = os.environ.get("HOST", "0.0.0.0")
     local_ip = get_local_ip()
 
-    threading.Thread(target=open_browser, daemon=True).start()
+    # In cloud environments (Render, Heroku, etc.), do not launch a desktop browser
+    is_cloud = "RENDER" in os.environ or "PORT" in os.environ
+    if not is_cloud:
+        threading.Thread(target=open_browser, args=(port,), daemon=True).start()
     
     import uvicorn
     print("=" * 65)
     print("  VRIXA AI ASSISTANT - CYBER HUD ONLINE")
     print("  HARSH - ROLL NO. 23035004049")
     print("-" * 65)
-    print("  LAPTOP / PC LINK : http://127.0.0.1:8000")
-    print(f"  PHONE LINK (Same Wi-Fi): http://{local_ip}:8000")
+    print(f"  HOST BINDING: http://{host}:{port}")
+    print(f"  LAPTOP / PC LINK : http://127.0.0.1:{port}")
+    print(f"  PHONE LINK (Same Wi-Fi): http://{local_ip}:{port}")
     print("=" * 65)
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run(app, host=host, port=port, reload=False)
