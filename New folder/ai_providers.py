@@ -35,7 +35,6 @@ def load_env_variables():
                                 os.environ[k] = v
             except Exception:
                 pass
-            break
 
 
 load_env_variables()
@@ -217,12 +216,120 @@ class BaseAIProvider:
             }
 
 # =====================================================================
-# 1. Google Gemini Provider (Primary)
+# 1. Google Gemini Provider (Primary with Multi-Key Fallback & Rotation)
 # =====================================================================
+def get_all_gemini_api_keys(custom_key: Optional[str] = None) -> List[str]:
+    """
+    Collects and deduplicates all configured Gemini API keys in priority order:
+    1. Custom key (from request payload or UI settings)
+    2. Numbered environment variables: GEMINI_API_KEY_1, GEMINI_API_KEY_2, GEMINI_API_KEY_3, ...
+    3. Primary environment variable: GEMINI_API_KEY
+    4. Comma-separated list: GEMINI_API_KEYS
+    """
+    raw_keys: List[str] = []
+
+    # 1. Custom key passed from request / UI
+    if custom_key and custom_key.strip():
+        raw_keys.extend([k.strip() for k in re.split(r'[,;\n]+', custom_key) if k.strip()])
+
+    # 2. Numbered environment variables in numerical order (GEMINI_API_KEY_1, 2, 3...)
+    numbered_keys: Dict[int, str] = {}
+    for env_name, env_val in os.environ.items():
+        m = re.match(r"^GEMINI_API_KEY_(\d+)$", env_name, re.IGNORECASE)
+        if m and env_val and env_val.strip():
+            numbered_keys[int(m.group(1))] = env_val.strip()
+    for num in sorted(numbered_keys.keys()):
+        raw_keys.append(numbered_keys[num])
+
+    # 3. Standard GEMINI_API_KEY
+    env_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if env_key:
+        raw_keys.extend([k.strip() for k in re.split(r'[,;\n]+', env_key) if k.strip()])
+
+    # 4. Comma-separated GEMINI_API_KEYS
+    env_keys = os.environ.get("GEMINI_API_KEYS", "").strip()
+    if env_keys:
+        raw_keys.extend([k.strip() for k in re.split(r'[,;\n]+', env_keys) if k.strip()])
+
+    # Deduplicate while preserving sequence order
+    deduped: List[str] = []
+    seen = set()
+    for k in raw_keys:
+        if k and k not in seen:
+            seen.add(k)
+            deduped.append(k)
+    return deduped
+
+
+def is_gemini_quota_or_availability_error(exc: Exception) -> bool:
+    """
+    Determines if an exception is a quota, rate-limit, resource-exhausted,
+    or API availability error suitable for key rotation.
+    Does NOT match user-input errors (400/INVALID_ARGUMENT) or code bugs (Requirement 8).
+    """
+    if isinstance(exc, (TypeError, ValueError, KeyError, AttributeError, IndexError)):
+        return False
+
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    if code in (429, 503):
+        return True
+    if code in (400,):
+        return False
+
+    status = str(getattr(exc, "status", "") or "").upper()
+    if status in ("RESOURCE_EXHAUSTED", "UNAVAILABLE"):
+        return True
+    if status in ("INVALID_ARGUMENT",):
+        return False
+
+    err_str = str(exc).lower()
+
+    # Never rotate on invalid user input or bad request
+    if "invalid_argument" in err_str or "bad request" in err_str:
+        return False
+
+    quota_indicators = (
+        "429",
+        "resource_exhausted",
+        "resource has been exhausted",
+        "quota",
+        "rate limit",
+        "rate_limit",
+        "ratelimit",
+        "too many requests",
+        "503",
+        "unavailable",
+        "service unavailable",
+        "temporarily unavailable",
+        "overloaded",
+    )
+    return any(indicator in err_str for indicator in quota_indicators)
+
+
 class GeminiProvider(BaseAIProvider):
     def __init__(self):
-        super().__init__("gemini", "Google Gemini", 1, "gemini-3.6-flash")
-        self.fallback_models = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.7-flash"]
+        super().__init__("gemini", "Google Gemini", 1, "gemini-2.5-flash")
+        self.fallback_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+
+    def get_api_keys(self, custom_key: Optional[str] = None) -> List[str]:
+        return get_all_gemini_api_keys(custom_key)
+
+    def get_api_key(self, custom_key: Optional[str] = None) -> str:
+        keys = self.get_api_keys(custom_key)
+        return keys[0] if keys else ""
+
+    def is_configured(self, custom_key: Optional[str] = None) -> bool:
+        return len(self.get_api_keys(custom_key)) > 0
+
+    def get_masked_key(self, custom_key: Optional[str] = None) -> str:
+        keys = self.get_api_keys(custom_key)
+        if not keys:
+            return ""
+        first = keys[0]
+        masked = "••••••••" if len(first) <= 8 else f"••••...{first[-6:]}"
+        if len(keys) > 1:
+            return f"{masked} ({len(keys)} keys configured)"
+        return masked
 
     async def generate(
         self,
@@ -234,19 +341,8 @@ class GeminiProvider(BaseAIProvider):
         model: Optional[str] = None
     ) -> ProviderResponse:
         start = time.time()
-        import re
 
-        raw_keys = []
-        if custom_key and custom_key.strip():
-            raw_keys.extend([k.strip() for k in re.split(r'[,;\n]+', custom_key) if k.strip()])
-        env_key = os.environ.get("GEMINI_API_KEY", "")
-        if env_key and env_key.strip():
-            raw_keys.extend([k.strip() for k in re.split(r'[,;\n]+', env_key) if k.strip()])
-        env_keys = os.environ.get("GEMINI_API_KEYS", "")
-        if env_keys and env_keys.strip():
-            raw_keys.extend([k.strip() for k in re.split(r'[,;\n]+', env_keys) if k.strip()])
-
-        keys_to_try = list(dict.fromkeys(raw_keys))
+        keys_to_try = self.get_api_keys(custom_key)
         if not keys_to_try:
             return ProviderResponse(
                 success=False,
@@ -284,8 +380,12 @@ class GeminiProvider(BaseAIProvider):
 
         last_error_type = "UNKNOWN_ERROR"
         last_error_msg = ""
+        total_keys = len(keys_to_try)
 
         for key_idx, current_key in enumerate(keys_to_try):
+            key_num = key_idx + 1
+            non_rotatable_error = False
+
             for m_name in target_models:
                 try:
                     client = genai.Client(api_key=current_key)
@@ -317,29 +417,58 @@ class GeminiProvider(BaseAIProvider):
                 except asyncio.TimeoutError:
                     last_error_type = "TIMEOUT"
                     last_error_msg = f"Gemini model {m_name} timed out after {self.timeout_seconds}s"
-                    logger.warning(f"[Gemini] {last_error_msg}")
+                    logger.warning(f"[Gemini] Key #{key_num} model {m_name} timed out")
                 except Exception as e:
-                    err_str = str(e)
-                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                    if is_gemini_quota_or_availability_error(e):
                         last_error_type = "QUOTA_EXCEEDED"
-                        last_error_msg = f"Gemini quota reached on key #{key_idx+1} ({m_name})"
-                    elif "401" in err_str or "API_KEY_INVALID" in err_str:
-                        last_error_type = "AUTH_ERROR"
-                        last_error_msg = f"Invalid Gemini API Key #{key_idx+1}"
+                        last_error_msg = f"Gemini quota/rate limit reached on key #{key_num}"
+                        if key_idx + 1 < total_keys:
+                            logger.warning(
+                                f"Gemini key {key_num} quota/rate limit reached, switching to key {key_num + 1}"
+                            )
+                        else:
+                            logger.warning(
+                                f"Gemini key {key_num} quota/rate limit reached. All configured Gemini keys exhausted."
+                            )
+                        # Rotate immediately to the next API key
                         break
-                    elif "503" in err_str or "UNAVAILABLE" in err_str:
-                        last_error_type = "SERVER_ERROR"
-                        last_error_msg = f"Gemini {m_name} temporarily unavailable"
                     else:
-                        last_error_type = "API_ERROR"
-                        last_error_msg = err_str[:120]
-                    logger.warning(f"[Gemini] {last_error_msg}")
+                        err_str = str(e)
+                        if "401" in err_str or "API_KEY_INVALID" in err_str or "403" in err_str:
+                            last_error_type = "AUTH_ERROR"
+                            last_error_msg = f"Invalid or unauthorized Gemini API Key #{key_num}"
+                            logger.warning(f"[Gemini] Key #{key_num} authorization failed: {last_error_msg}")
+                            break
+                        elif "400" in err_str or "invalid_argument" in err_str.lower() or "bad request" in err_str.lower() or "safety" in err_str.lower():
+                            last_error_type = "INVALID_REQUEST"
+                            last_error_msg = f"Invalid request or content blocked: {err_str[:120]}"
+                            logger.warning(f"[Gemini] Non-rotatable invalid request on key #{key_num}: {last_error_msg}")
+                            non_rotatable_error = True
+                            break
+                        elif isinstance(e, (TypeError, ValueError, KeyError, AttributeError, IndexError)):
+                            last_error_type = "BUG"
+                            last_error_msg = f"Application bug: {err_str[:120]}"
+                            logger.warning(f"[Gemini] Application error on key #{key_num}: {last_error_msg}")
+                            non_rotatable_error = True
+                            break
+                        else:
+                            last_error_type = "SERVER_ERROR"
+                            last_error_msg = err_str[:120]
+                            logger.warning(f"[Gemini] Temporary error on key #{key_num}: {last_error_msg}")
+                            break
+
+            if non_rotatable_error:
+                break
 
         elapsed_ms = round((time.time() - start) * 1000, 1)
+        clean_user_message = ""
+        if last_error_type == "QUOTA_EXCEEDED":
+            clean_user_message = "I am currently experiencing high demand and the Gemini API service quota is temporarily reached. Please try again shortly."
+
         return ProviderResponse(
             success=False,
             provider=self.provider_id,
-            response="",
+            response=clean_user_message,
             model=target_models[0],
             response_time_ms=elapsed_ms,
             error_type=last_error_type,
@@ -629,18 +758,16 @@ class OpenAIProvider(BaseAIProvider):
             )
 
 # =====================================================================
-# 4. Groq Provider (Ultra-Fast Cloud Inference)
+# 2. Groq Provider (Free-Tier Cloud Inference)
 # =====================================================================
 class GroqProvider(BaseAIProvider):
     def __init__(self):
-        super().__init__("groq", "Groq Cloud", 4, "openai/gpt-oss-120b")
+        super().__init__("groq", "Groq Cloud", 2, "llama-3.3-70b-versatile")
         self.endpoint = "https://api.groq.com/openai/v1/chat/completions"
         self.fallback_models = [
-            "openai/gpt-oss-120b",
-            "qwen/qwen3.8-27b",
-            "openai/gpt-oss-20b",
-            "qwen/qwen3.6-27b",
-            "groq/compound-mini"
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "gemma2-9b-it"
         ]
 
     def get_api_key(self, custom_key: Optional[str] = None) -> Optional[str]:
@@ -696,6 +823,7 @@ class GroqProvider(BaseAIProvider):
             "Content-Type": "application/json"
         }
 
+        last_error_type = "API_ERROR"
         last_error = None
         for try_model in target_models:
             payload = {
@@ -723,9 +851,20 @@ class GroqProvider(BaseAIProvider):
                                 response_time_ms=elapsed_ms
                             )
                     elif res.status_code == 429:
-                        last_error = "Groq rate limit exceeded (429)"
+                        last_error_type = "QUOTA_EXCEEDED"
+                        last_error = f"Groq free-tier rate limit reached on {try_model} (429)"
                         continue
-                    elif res.status_code == 401:
+                    elif res.status_code == 400:
+                        return ProviderResponse(
+                            success=False,
+                            provider=self.provider_id,
+                            response="",
+                            model=try_model,
+                            response_time_ms=elapsed_ms,
+                            error_type="INVALID_REQUEST",
+                            error_message=f"Groq bad request (400): {res.text[:120]}"
+                        )
+                    elif res.status_code in (401, 403):
                         return ProviderResponse(
                             success=False,
                             provider=self.provider_id,
@@ -735,16 +874,20 @@ class GroqProvider(BaseAIProvider):
                             error_type="AUTH_ERROR",
                             error_message="Invalid Groq API Key (401)"
                         )
-                    elif res.status_code == 404:
-                        last_error = f"Model {try_model} not found on Groq"
+                    elif res.status_code in (500, 502, 503, 504):
+                        last_error_type = "UNAVAILABLE"
+                        last_error = f"Groq {try_model} temporarily unavailable ({res.status_code})"
                         continue
                     else:
+                        last_error_type = "SERVER_ERROR"
                         last_error = f"Groq API Error: HTTP {res.status_code}"
                         continue
             except httpx.TimeoutException:
+                last_error_type = "TIMEOUT"
                 last_error = f"Groq request timed out on {try_model}"
                 continue
             except Exception as e:
+                last_error_type = "NETWORK_ERROR"
                 last_error = str(e)[:120]
                 continue
 
@@ -755,8 +898,172 @@ class GroqProvider(BaseAIProvider):
             response="",
             model=target_models[0],
             response_time_ms=elapsed_ms,
-            error_type="API_ERROR",
-            error_message=last_error or "All Groq models failed"
+            error_type=last_error_type,
+            error_message=last_error or "All Groq free models failed"
+        )
+
+
+# =====================================================================
+# 3. OpenRouter Provider (Strictly FREE-Only Models)
+# =====================================================================
+class OpenRouterProvider(BaseAIProvider):
+    def __init__(self):
+        super().__init__("openrouter", "OpenRouter Free", 3, "meta-llama/llama-3.3-70b-instruct:free")
+        self.endpoint = "https://openrouter.ai/api/v1/chat/completions"
+        # Strict free-model requirement: ONLY models explicitly designated with :free suffix
+        self.fallback_models = [
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "google/gemini-2.0-flash-exp:free",
+            "deepseek/deepseek-r1:free",
+            "mistralai/mistral-7b-instruct:free",
+            "qwen/qwen-2.5-coder-32b-instruct:free"
+        ]
+
+    def get_api_key(self, custom_key: Optional[str] = None) -> Optional[str]:
+        if custom_key and custom_key.strip():
+            return custom_key.strip()
+        return os.environ.get("OPENROUTER_API_KEY", "").strip() or None
+
+    def is_configured(self, custom_key: Optional[str] = None) -> bool:
+        return bool(self.get_api_key(custom_key))
+
+    async def generate(
+        self,
+        prompt: str,
+        conversation_history: List[Dict[str, str]],
+        image_base64: Optional[str] = None,
+        system_instruction: Optional[str] = None,
+        custom_key: Optional[str] = None,
+        model: Optional[str] = None
+    ) -> ProviderResponse:
+        start = time.time()
+        api_key = self.get_api_key(custom_key)
+        if not api_key:
+            return ProviderResponse(
+                success=False,
+                provider=self.provider_id,
+                response="",
+                model=model or self.default_model,
+                response_time_ms=0,
+                error_type="NOT_CONFIGURED",
+                error_message="OpenRouter API key is not configured"
+            )
+
+        # STRICT GUARANTEE: Filter strictly to only free-tier models (:free suffix)
+        target_models = [m for m in self.fallback_models if m.endswith(":free")]
+        if model and model.endswith(":free"):
+            if model in target_models:
+                target_models.remove(model)
+            target_models.insert(0, model)
+        elif model and not model.endswith(":free"):
+            logger.warning(f"[OpenRouter] Refusing non-free model '{model}'. Enforcing free tier only (:free).")
+
+        messages = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+
+        for turn in conversation_history[-4:]:
+            role = "user" if turn.get("role") == "user" else "assistant"
+            content = turn.get("content", "").strip()
+            if content:
+                messages.append({"role": role, "content": content})
+
+        if image_base64:
+            b64_url = image_base64 if image_base64.startswith("data:") else f"data:image/jpeg;base64,{image_base64}"
+            user_content = [
+                {"type": "text", "text": prompt or "Analyze this image."},
+                {"type": "image_url", "image_url": {"url": b64_url}}
+            ]
+        else:
+            user_content = prompt or "Hello"
+
+        messages.append({"role": "user", "content": user_content})
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "HTTP-Referer": "https://vrixa.ai",
+            "X-Title": "Vrixa AI Assistant",
+            "Content-Type": "application/json"
+        }
+
+        last_error_type = "API_ERROR"
+        last_error = None
+
+        for try_model in target_models:
+            payload = {
+                "model": try_model,
+                "messages": messages,
+                "max_tokens": 1024,
+                "temperature": 0.7
+            }
+
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout_seconds) as http_client:
+                    res = await http_client.post(self.endpoint, headers=headers, json=payload)
+                    elapsed_ms = round((time.time() - start) * 1000, 1)
+
+                    if res.status_code == 200:
+                        data = res.json()
+                        choices = data.get("choices", [])
+                        if choices:
+                            reply = choices[0].get("message", {}).get("content", "").strip()
+                            return ProviderResponse(
+                                success=True,
+                                provider=self.provider_id,
+                                response=reply,
+                                model=try_model,
+                                response_time_ms=elapsed_ms
+                            )
+                    elif res.status_code == 429:
+                        last_error_type = "QUOTA_EXCEEDED"
+                        last_error = f"OpenRouter free model {try_model} rate limit reached (429)"
+                        continue
+                    elif res.status_code in (401, 403):
+                        return ProviderResponse(
+                            success=False,
+                            provider=self.provider_id,
+                            response="",
+                            model=try_model,
+                            response_time_ms=elapsed_ms,
+                            error_type="AUTH_ERROR",
+                            error_message=f"Invalid or unauthorized OpenRouter API Key ({res.status_code})"
+                        )
+                    elif res.status_code == 400:
+                        return ProviderResponse(
+                            success=False,
+                            provider=self.provider_id,
+                            response="",
+                            model=try_model,
+                            response_time_ms=elapsed_ms,
+                            error_type="INVALID_REQUEST",
+                            error_message=f"OpenRouter bad request (400): {res.text[:120]}"
+                        )
+                    elif res.status_code in (500, 502, 503, 504):
+                        last_error_type = "UNAVAILABLE"
+                        last_error = f"OpenRouter {try_model} temporarily unavailable ({res.status_code})"
+                        continue
+                    else:
+                        last_error_type = "SERVER_ERROR"
+                        last_error = f"OpenRouter API Error: HTTP {res.status_code}"
+                        continue
+            except httpx.TimeoutException:
+                last_error_type = "TIMEOUT"
+                last_error = f"OpenRouter request timed out on {try_model}"
+                continue
+            except Exception as e:
+                last_error_type = "NETWORK_ERROR"
+                last_error = str(e)[:120]
+                continue
+
+        elapsed_ms = round((time.time() - start) * 1000, 1)
+        return ProviderResponse(
+            success=False,
+            provider=self.provider_id,
+            response="",
+            model=target_models[0],
+            response_time_ms=elapsed_ms,
+            error_type=last_error_type,
+            error_message=last_error or "All OpenRouter free models failed"
         )
 
 # =====================================================================
@@ -969,19 +1276,57 @@ class OfflineProvider(BaseAIProvider):
             )
 
 # =====================================================================
-# Central Multi-AI Orchestrator Engine
+# Provider Cooldown Manager (Rate Limit & Availability Circuit Breaker)
+# =====================================================================
+class ProviderCooldownTracker:
+    def __init__(self, default_cooldown_seconds: float = 60.0):
+        self.default_cooldown = default_cooldown_seconds
+        self._cooldowns: Dict[str, float] = {}
+
+    def set_cooldown(self, provider_id: str, duration_seconds: Optional[float] = None):
+        duration = duration_seconds if duration_seconds is not None else self.default_cooldown
+        self._cooldowns[provider_id] = time.time() + duration
+
+    def is_in_cooldown(self, provider_id: str) -> bool:
+        expiry = self._cooldowns.get(provider_id, 0.0)
+        if time.time() < expiry:
+            return True
+        self._cooldowns.pop(provider_id, None)
+        return False
+
+    def remaining_cooldown(self, provider_id: str) -> float:
+        expiry = self._cooldowns.get(provider_id, 0.0)
+        rem = expiry - time.time()
+        return max(0.0, round(rem, 1))
+
+    def clear_cooldown(self, provider_id: str):
+        self._cooldowns.pop(provider_id, None)
+
+
+cooldown_tracker = ProviderCooldownTracker(default_cooldown_seconds=60.0)
+
+
+# =====================================================================
+# Central Multi-AI Orchestrator Engine (Free-Tier Only Priority)
 # =====================================================================
 class MultiAIOrchestrator:
     def __init__(self):
         self.providers: Dict[str, BaseAIProvider] = {
             "gemini": GeminiProvider(),
             "groq": GroqProvider(),
+            "openrouter": OpenRouterProvider(),
             "claude": ClaudeProvider(),
             "openai": OpenAIProvider(),
             "ollama": OllamaProvider(),
             "offline": OfflineProvider()
         }
-        self.priority_order = ["gemini", "groq", "claude", "openai", "ollama", "offline"]
+        # Free-tier only fallback priority order:
+        # 1. Google Gemini (free tier)
+        # 2. Groq Cloud (free tier)
+        # 3. OpenRouter (strictly :free models)
+        # 4. Local Ollama (if running)
+        # 5. Offline Knowledge Engine
+        self.priority_order = ["gemini", "groq", "openrouter", "ollama", "offline"]
 
     def get_provider(self, provider_id: str) -> Optional[BaseAIProvider]:
         return self.providers.get(provider_id.lower())
@@ -992,8 +1337,12 @@ class MultiAIOrchestrator:
         for pid in self.priority_order:
             if pid == "offline":
                 continue
-            prov = self.providers[pid]
+            prov = self.providers.get(pid)
+            if not prov:
+                continue
             ckey = custom_keys.get(pid, "")
+            is_cooling = cooldown_tracker.is_in_cooldown(pid)
+            rem_cooling = int(cooldown_tracker.remaining_cooldown(pid)) if is_cooling else 0
             status_list.append({
                 "id": prov.provider_id,
                 "name": prov.display_name,
@@ -1001,7 +1350,9 @@ class MultiAIOrchestrator:
                 "enabled": prov.is_enabled,
                 "configured": prov.is_configured(ckey),
                 "model": prov.default_model,
-                "masked_key": prov.get_masked_key(ckey)
+                "masked_key": prov.get_masked_key(ckey),
+                "in_cooldown": is_cooling,
+                "cooldown_remaining_seconds": rem_cooling
             })
         return status_list
 
@@ -1020,7 +1371,7 @@ class MultiAIOrchestrator:
         fallback_log = []
         configured_cloud_provider = False
 
-        for pid in self.priority_order:
+        for i, pid in enumerate(self.priority_order):
             provider = self.providers.get(pid)
             if not provider:
                 continue
@@ -1035,13 +1386,26 @@ class MultiAIOrchestrator:
             custom_key = custom_keys.get(pid, "")
             base_url = p_conf.get("base_url", getattr(provider, "base_url", None))
 
-            if pid in ["gemini", "claude", "openai"] and not provider.is_configured(custom_key):
-                logger.info(f"[AI-Router] Skipping {provider.display_name} (No API key configured)")
-                fallback_log.append(f"{provider.display_name}: No Key")
-                continue
-
-            if pid in ["gemini", "groq", "claude", "openai"] and provider.is_configured(custom_key):
+            # Check configuration for cloud providers
+            if pid in ["gemini", "groq", "openrouter", "claude", "openai"]:
+                if not provider.is_configured(custom_key):
+                    logger.info(f"[AI-Router] Skipping {provider.display_name} (No API key configured)")
+                    fallback_log.append(f"{provider.display_name}: No Key")
+                    continue
                 configured_cloud_provider = True
+
+            # Cooldown check: if recently rate-limited, skip without wasting an API call
+            if cooldown_tracker.is_in_cooldown(pid):
+                rem_s = int(cooldown_tracker.remaining_cooldown(pid))
+                logger.info(f"[AI-Router] Skipping {provider.display_name} (In cooldown for next {rem_s}s due to recent quota/rate limit)")
+                fallback_log.append(f"{provider.display_name} (Cooldown {rem_s}s)")
+
+                # Safe transition logging when in cooldown
+                if pid == "gemini":
+                    logger.warning("Gemini free-tier limit reached → switching to Groq")
+                elif pid == "groq":
+                    logger.warning("Groq unavailable → switching to OpenRouter free model")
+                continue
 
             logger.info(f"[AI-Router] Attempting Provider #{provider.priority}: {provider.display_name} (Model: {target_model})...")
 
@@ -1066,6 +1430,7 @@ class MultiAIOrchestrator:
                 )
 
             if resp.success and resp.response and resp.response.strip():
+                cooldown_tracker.clear_cooldown(pid)
                 logger.info(f"[AI-Router] SUCCESS! {provider.display_name} responded in {resp.response_time_ms}ms (Model: {resp.model})")
                 return {
                     "success": True,
@@ -1075,16 +1440,41 @@ class MultiAIOrchestrator:
                     "response_time_ms": resp.response_time_ms,
                     "fallback_log": fallback_log
                 }
-            else:
-                err_summary = f"{resp.error_type or 'FAILED'}: {resp.error_message or 'No output'}"
-                logger.warning(f"[AI-Router] {provider.display_name} Failed ({err_summary}). Falling back to next provider...")
-                fallback_log.append(f"{provider.display_name} ({resp.error_type})")
+
+            # Failure occurred
+            err_summary = f"{resp.error_type or 'FAILED'}: {resp.error_message or 'No output'}"
+            fallback_log.append(f"{provider.display_name} ({resp.error_type})")
+
+            # Check if this error is NON-retryable:
+            # "Do NOT switch providers for normal application bugs, invalid requests, authentication/configuration errors, or programming errors. Only fallback when the failure is genuinely retryable or caused by quota/rate limits/provider availability."
+            if resp.error_type in ("INVALID_REQUEST", "AUTH_ERROR", "BUG"):
+                logger.warning(f"[AI-Router] {provider.display_name} non-retryable error ({resp.error_type}: {resp.error_message}). Stopping fallback.")
+                return {
+                    "success": False,
+                    "provider": resp.provider,
+                    "response": resp.response or f"Request error: {resp.error_message}",
+                    "model": resp.model,
+                    "response_time_ms": resp.response_time_ms,
+                    "fallback_log": fallback_log
+                }
+
+            # If quota/rate limit reached or unavailable, place in cooldown
+            if resp.error_type in ("QUOTA_EXCEEDED", "UNAVAILABLE"):
+                cooldown_tracker.set_cooldown(pid, duration_seconds=60.0)
+
+            # Safe transition logs:
+            if pid == "gemini":
+                logger.warning("Gemini free-tier limit reached → switching to Groq")
+            elif pid == "groq":
+                logger.warning("Groq unavailable → switching to OpenRouter free model")
+            elif pid == "openrouter":
+                logger.warning("OpenRouter free model limit reached → all free cloud providers exhausted")
 
         if not configured_cloud_provider:
             return {
                 "success": False,
                 "provider": "offline",
-                "response": "No AI provider is configured. Add GEMINI_API_KEY to your local environment or enter a provider key in Settings.",
+                "response": "No free AI provider is configured. Please set GEMINI_API_KEY, GROQ_API_KEY, or OPENROUTER_API_KEY in your environment.",
                 "model": "configuration-required",
                 "response_time_ms": 0,
                 "fallback_log": fallback_log
@@ -1093,7 +1483,7 @@ class MultiAIOrchestrator:
         return {
             "success": False,
             "provider": "offline",
-            "response": "I’m having trouble reaching my AI services right now. Please try again in a moment.",
+            "response": "I’m having trouble reaching my free AI services right now due to temporary quota or rate limits. Please try again in a moment.",
             "model": "fallback-offline",
             "response_time_ms": 0,
             "fallback_log": fallback_log

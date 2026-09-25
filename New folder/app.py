@@ -381,7 +381,7 @@ def load_env_variables():
 load_env_variables()
 
 # Setup Gemini AI Client
-API_KEY = os.environ.get("GEMINI_API_KEY", "")
+API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY_1", "")
 gemini_client = None
 if API_KEY:
     try:
@@ -480,10 +480,11 @@ async def api_generate_image(req: ImageGenerateRequest):
     }
 
 @app.get("/api/providers/status")
-async def get_providers_status(gemini_key: str | None = None, groq_key: str | None = None, claude_key: str | None = None, openai_key: str | None = None):
+async def get_providers_status(gemini_key: str | None = None, groq_key: str | None = None, openrouter_key: str | None = None, claude_key: str | None = None, openai_key: str | None = None):
     custom_keys = {}
     if gemini_key: custom_keys["gemini"] = gemini_key
     if groq_key: custom_keys["groq"] = groq_key
+    if openrouter_key: custom_keys["openrouter"] = openrouter_key
     if claude_key: custom_keys["claude"] = claude_key
     if openai_key: custom_keys["openai"] = openai_key
     return {"providers": ai_orchestrator.get_providers_status(custom_keys=custom_keys)}

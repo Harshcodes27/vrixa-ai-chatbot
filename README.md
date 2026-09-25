@@ -208,17 +208,26 @@ cp .env.example .env
 
 | Variable | Required | Description | Default / Example |
 | :--- | :---: | :--- | :--- |
-| `GEMINI_API_KEY` | Optional* | Primary AI API key for Google Gemini models | `AIzaSy...` |
+| `GEMINI_API_KEY_1` | Recommended* | Primary Gemini key (first key used for all Gemini requests) | `AIzaSy...` |
+| `GEMINI_API_KEY_2` | Optional | Second Gemini key (auto-fallback when key 1 hits quota/rate limits) | `AIzaSy...` |
+| `GEMINI_API_KEY_3` | Optional | Third Gemini key (auto-fallback when key 2 hits quota/rate limits) | `AIzaSy...` |
+| `GEMINI_API_KEY_4` | Optional | Fourth Gemini key (auto-fallback when key 3 hits quota/rate limits) | `AIzaSy...` |
+| `GEMINI_API_KEY` | Optional | Single Gemini key fallback (backwards compatible) | `AIzaSy...` |
 | `GEMINI_API_KEYS` | Optional | Comma-separated Gemini keys for auto-rotation | `key1,key2,key3` |
-| `GROQ_API_KEY` | Optional* | API key for high-speed Groq Cloud inference | `gsk_...` |
-| `CLAUDE_API_KEY` | Optional* | API key for Anthropic Claude models | `sk-ant-...` |
-| `OPENAI_API_KEY` | Optional* | API key for OpenAI GPT models | `sk-...` |
+| `GROQ_API_KEY` | Optional* | API key for Groq Cloud free tier (`llama-3.3-70b-versatile`) | `gsk_...` |
+| `OPENROUTER_API_KEY` | Optional* | API key for OpenRouter strictly free models (`:free`) | `sk-or-...` |
+| `CLAUDE_API_KEY` | Optional | API key for Anthropic Claude models | `sk-ant-...` |
+| `OPENAI_API_KEY` | Optional | API key for OpenAI GPT models | `sk-...` |
 | `OLLAMA_BASE_URL` | Optional | Host address for local Ollama daemon | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Optional | Default model for local Ollama inference | `llama3.2` |
 | `PORT` | Optional | Port on which the Uvicorn web server listens | `8000` |
 | `PYTHON_VERSION` | Optional | Target Python runtime for cloud deployment | `3.11.8` |
 
-*\*Note: At least one AI API key or a local Ollama instance is recommended for online generative responses. If no keys are provided, Vrixa continues operating using native system tools, weather, diagnostics, and the Offline Knowledge Engine.*
+*\*Note: Vrixa uses a strictly free-tier multi-provider fallback hierarchy:*
+*1. **Google Gemini** (Free-tier: `gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`) with automatic multi-key rotation (`GEMINI_API_KEY_1..4`).*
+*2. **Groq Cloud** (Free-tier: `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `gemma2-9b-it`).*
+*3. **OpenRouter** (Strictly free models ending with `:free`, e.g., `meta-llama/llama-3.3-70b-instruct:free`).*
+*4. **Local Ollama / Clean Offline Fallback** if all cloud providers are in cooldown or unavailable.*
 
 ---
 
@@ -304,8 +313,21 @@ The repository includes native deployment definitions for [Render](https://rende
 4. Render will parse `render.yaml` with the following configuration:
    - **Environment**: Python
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn app:app --app-dir "New folder" --host 0.0.0.0 --port $PORT`
-5. In the Render service dashboard, configure your environment variables under **Environment** (e.g., `GEMINI_API_KEY`, `GROQ_API_KEY`).
+   - **Start Command**: `uvicorn app:app --host 0.0.0.0 --port $PORT`
+5. In your Render service dashboard under **Environment**, configure your free-tier API keys:
+   - `GEMINI_API_KEY_1`: Your first Gemini API key (active primary key)
+   - `GEMINI_API_KEY_2`: Your second Gemini API key (fallback upon rate limit)
+   - `GEMINI_API_KEY_3`: Your third Gemini API key (further fallback)
+   - `GEMINI_API_KEY_4`: Your fourth Gemini API key (further fallback)
+   - `GROQ_API_KEY`: Groq Cloud free tier API key (auto-fallback if all Gemini keys are exhausted)
+   - `OPENROUTER_API_KEY`: OpenRouter free API key (auto-fallback strictly routing to `:free` models)
+
+   **Fallback & Cooldown Workflow**:
+   - `Gemini key 1 quota/rate limit reached, switching to key 2`
+   - When all Gemini keys hit free-tier rate limits: `Gemini free-tier limit reached → switching to Groq`
+   - If Groq rate limits or encounters availability issues: `Groq unavailable → switching to OpenRouter free model`
+   - Providers hitting rate limits are automatically placed in a 60-second cooldown so subsequent requests don't waste time retrying failing endpoints.
+   - Non-retryable errors (invalid user request 400, safety block, auth error) halt immediately without cascading.
 
 ---
 
