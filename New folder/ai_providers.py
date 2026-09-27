@@ -308,8 +308,8 @@ def is_gemini_quota_or_availability_error(exc: Exception) -> bool:
 
 class GeminiProvider(BaseAIProvider):
     def __init__(self):
-        super().__init__("gemini", "Google Gemini", 1, "gemini-2.5-flash")
-        self.fallback_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        super().__init__("gemini", "Google Gemini", 1, "gemini-3.8-flash")
+        self.fallback_models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash"]
 
     def get_api_keys(self, custom_key: Optional[str] = None) -> List[str]:
         return get_all_gemini_api_keys(custom_key)
@@ -417,7 +417,8 @@ class GeminiProvider(BaseAIProvider):
                 except asyncio.TimeoutError:
                     last_error_type = "TIMEOUT"
                     last_error_msg = f"Gemini model {m_name} timed out after {self.timeout_seconds}s"
-                    logger.warning(f"[Gemini] Key #{key_num} model {m_name} timed out")
+                    logger.warning(f"[Gemini] Key #{key_num} model {m_name} timed out, trying next fallback model...")
+                    continue
                 except Exception as e:
                     if is_gemini_quota_or_availability_error(e):
                         last_error_type = "QUOTA_EXCEEDED"
@@ -439,6 +440,11 @@ class GeminiProvider(BaseAIProvider):
                             last_error_msg = f"Invalid or unauthorized Gemini API Key #{key_num}"
                             logger.warning(f"[Gemini] Key #{key_num} authorization failed: {last_error_msg}")
                             break
+                        elif "404" in err_str or "not found" in err_str.lower() or "is no longer available" in err_str.lower():
+                            last_error_type = "MODEL_NOT_FOUND"
+                            last_error_msg = f"Model {m_name} unavailable: {err_str[:120]}"
+                            logger.warning(f"[Gemini] Key #{key_num} model {m_name} unavailable, trying next fallback model...")
+                            continue
                         elif "400" in err_str or "invalid_argument" in err_str.lower() or "bad request" in err_str.lower() or "safety" in err_str.lower():
                             last_error_type = "INVALID_REQUEST"
                             last_error_msg = f"Invalid request or content blocked: {err_str[:120]}"
@@ -454,8 +460,8 @@ class GeminiProvider(BaseAIProvider):
                         else:
                             last_error_type = "SERVER_ERROR"
                             last_error_msg = err_str[:120]
-                            logger.warning(f"[Gemini] Temporary error on key #{key_num}: {last_error_msg}")
-                            break
+                            logger.warning(f"[Gemini] Temporary error on key #{key_num} model {m_name}: {last_error_msg}")
+                            continue
 
             if non_rotatable_error:
                 break
@@ -1446,8 +1452,7 @@ class MultiAIOrchestrator:
             fallback_log.append(f"{provider.display_name} ({resp.error_type})")
 
             # Check if this error is NON-retryable:
-            # "Do NOT switch providers for normal application bugs, invalid requests, authentication/configuration errors, or programming errors. Only fallback when the failure is genuinely retryable or caused by quota/rate limits/provider availability."
-            if resp.error_type in ("INVALID_REQUEST", "AUTH_ERROR", "BUG"):
+            if resp.error_type in ("INVALID_REQUEST", "BUG"):
                 logger.warning(f"[AI-Router] {provider.display_name} non-retryable error ({resp.error_type}: {resp.error_message}). Stopping fallback.")
                 return {
                     "success": False,
@@ -1457,6 +1462,8 @@ class MultiAIOrchestrator:
                     "response_time_ms": resp.response_time_ms,
                     "fallback_log": fallback_log
                 }
+            elif resp.error_type == "AUTH_ERROR":
+                logger.warning(f"[AI-Router] {provider.display_name} authentication failed ({resp.error_message}). Continuing to fallback.")
 
             # If quota/rate limit reached or unavailable, place in cooldown
             if resp.error_type in ("QUOTA_EXCEEDED", "UNAVAILABLE"):

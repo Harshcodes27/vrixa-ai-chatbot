@@ -424,7 +424,7 @@ class SystemAutomation:
                 try:
                     img = Image.open(filepath)
                     prompt = "You are Vrixa. Analyze what is currently open on this user screen in 2-3 crisp, helpful sentences. Mention the visible active apps, code, or web page clearly."
-                    for m in ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite"]:
+                    for m in ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash"]:
                         try:
                             resp = gemini_client.models.generate_content(model=m, contents=[img, prompt])
                             if resp and hasattr(resp, 'text') and resp.text:
@@ -736,7 +736,7 @@ class VrixaBrain:
                 prompt_parts.append(f"User: {raw_text}\nVrixa:")
 
                 # Try latest fast models
-                models = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite"]
+                models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash"]
                 response = None
                 for m in models:
                     try:

@@ -521,7 +521,7 @@ class VrixaBrain:
                 prompt_parts.append(f"User: {raw_text}\nVrixa:")
 
                 # Try latest fast models
-                models = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite"]
+                models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash"]
                 response = None
                 for m in models:
                     try:

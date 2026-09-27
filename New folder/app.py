@@ -438,7 +438,7 @@ def extract_user_name(text: str) -> str | None:
 class ChatRequest(BaseModel):
     session_id: str
     message: str
-    model: str = "gemini-3.6-flash"
+    model: str = "gemini-3.8-flash"
     api_key: str | None = None
     image_base64: str | None = None
     custom_keys: dict[str, str] | None = None

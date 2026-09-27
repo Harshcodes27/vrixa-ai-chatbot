@@ -1305,7 +1305,9 @@
                     <div>
                         <small style="color: #64748B; font-size: 10px;">Model</small>
                         <select id="geminiModel" class="provider-input">
-                            <option value="gemini-3.6-flash" selected>gemini-3.6-flash</option>
+                            <option value="gemini-3.8-flash" selected>gemini-3.8-flash (Recommended)</option>
+                            <option value="gemini-flash-latest">gemini-flash-latest</option>
+                            <option value="gemini-3.6-flash">gemini-3.6-flash</option>
                             <option value="gemini-3.5-flash">gemini-3.5-flash</option>
                             <option value="gemini-3.7-flash">gemini-3.7-flash</option>
                         </select>
@@ -1837,7 +1839,7 @@
             const providerConfigs = {
                 gemini: {
                     enabled: document.getElementById('geminiToggle') ? document.getElementById('geminiToggle').checked : true,
-                    model: document.getElementById('geminiModel') ? document.getElementById('geminiModel').value : 'gemini-3.6-flash'
+                    model: document.getElementById('geminiModel') ? document.getElementById('geminiModel').value : 'gemini-3.8-flash'
                 },
                 groq: {
                     enabled: document.getElementById('groqToggle') ? document.getElementById('groqToggle').checked : true,
