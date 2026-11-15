@@ -24,11 +24,10 @@ In addition to intelligent query routing, Vrixa bridges cloud intelligence with 
 
 ## Key Features
 
-### 1. Multi-AI Fallback Orchestration Engine
-- **Cascading Failover**: Sequentially queries providers by priority: **Google Gemini** &rarr; **Groq Cloud** &rarr; **Anthropic Claude** &rarr; **OpenAI** &rarr; **Local Ollama** &rarr; **Offline Knowledge Base**.
-- **Model Auto-Recovery**: If a specific model within a provider encounters quota limits, the router automatically cycles through compatible secondary models.
-- **Key Rotation**: Supports comma-separated API keys for Google Gemini (`GEMINI_API_KEYS`) to balance traffic across multiple accounts.
-- **Client & Server Key Configuration**: Keys can be configured globally on the server via environment variables or set on-the-fly per user in the Settings modal and cached in client `localStorage`.
+### 1. High-Performance Google Gemini AI Engine
+- **Single Unified API**: Powered exclusively by Google's latest multimodal **Gemini API** (`gemini-3.8-flash`, `gemini-flash-latest`), eliminating API key clutter and third-party provider failures.
+- **Model Auto-Recovery**: Automatically switches to secondary Gemini models (`gemini-flash-latest`, `gemini-3.6-flash`) if transient limits occur.
+- **Client & Server Key Configuration**: Configured seamlessly via `GEMINI_API_KEY` on the server or on-the-fly in the UI Settings modal.
 
 ### 2. Multimodal Vision & Image Analysis
 - **Screen & Image Comprehension**: Accepts base64 image uploads or desktop screenshots alongside user prompts for visual question answering using Gemini Vision.
@@ -208,26 +207,9 @@ cp .env.example .env
 
 | Variable | Required | Description | Default / Example |
 | :--- | :---: | :--- | :--- |
-| `GEMINI_API_KEY_1` | Recommended* | Primary Gemini key (first key used for all Gemini requests) | `AIzaSy...` |
-| `GEMINI_API_KEY_2` | Optional | Second Gemini key (auto-fallback when key 1 hits quota/rate limits) | `AIzaSy...` |
-| `GEMINI_API_KEY_3` | Optional | Third Gemini key (auto-fallback when key 2 hits quota/rate limits) | `AIzaSy...` |
-| `GEMINI_API_KEY_4` | Optional | Fourth Gemini key (auto-fallback when key 3 hits quota/rate limits) | `AIzaSy...` |
-| `GEMINI_API_KEY` | Optional | Single Gemini key fallback (backwards compatible) | `AIzaSy...` |
-| `GEMINI_API_KEYS` | Optional | Comma-separated Gemini keys for auto-rotation | `key1,key2,key3` |
-| `GROQ_API_KEY` | Optional* | API key for Groq Cloud free tier (`llama-3.3-70b-versatile`) | `gsk_...` |
-| `OPENROUTER_API_KEY` | Optional* | API key for OpenRouter strictly free models (`:free`) | `sk-or-...` |
-| `CLAUDE_API_KEY` | Optional | API key for Anthropic Claude models | `sk-ant-...` |
-| `OPENAI_API_KEY` | Optional | API key for OpenAI GPT models | `sk-...` |
-| `OLLAMA_BASE_URL` | Optional | Host address for local Ollama daemon | `http://localhost:11434` |
-| `OLLAMA_MODEL` | Optional | Default model for local Ollama inference | `llama3.2` |
+| `GEMINI_API_KEY` | Required | Google Gemini API key for all multimodal reasoning & conversation | `AIzaSy...` |
 | `PORT` | Optional | Port on which the Uvicorn web server listens | `8000` |
 | `PYTHON_VERSION` | Optional | Target Python runtime for cloud deployment | `3.11.8` |
-
-*\*Note: Vrixa uses a strictly free-tier multi-provider fallback hierarchy:*
-*1. **Google Gemini** (Free-tier: `gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`) with automatic multi-key rotation (`GEMINI_API_KEY_1..4`).*
-*2. **Groq Cloud** (Free-tier: `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `gemma2-9b-it`).*
-*3. **OpenRouter** (Strictly free models ending with `:free`, e.g., `meta-llama/llama-3.3-70b-instruct:free`).*
-*4. **Local Ollama / Clean Offline Fallback** if all cloud providers are in cooldown or unavailable.*
 
 ---
 
@@ -315,19 +297,8 @@ The repository includes native deployment definitions for [Render](https://rende
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `uvicorn app:app --host 0.0.0.0 --port $PORT`
 5. In your Render service dashboard under **Environment**, configure your free-tier API keys:
-   - `GEMINI_API_KEY_1`: Your first Gemini API key (active primary key)
-   - `GEMINI_API_KEY_2`: Your second Gemini API key (fallback upon rate limit)
-   - `GEMINI_API_KEY_3`: Your third Gemini API key (further fallback)
-   - `GEMINI_API_KEY_4`: Your fourth Gemini API key (further fallback)
-   - `GROQ_API_KEY`: Groq Cloud free tier API key (auto-fallback if all Gemini keys are exhausted)
-   - `OPENROUTER_API_KEY`: OpenRouter free API key (auto-fallback strictly routing to `:free` models)
-
-   **Fallback & Cooldown Workflow**:
-   - `Gemini key 1 quota/rate limit reached, switching to key 2`
-   - When all Gemini keys hit free-tier rate limits: `Gemini free-tier limit reached → switching to Groq`
-   - If Groq rate limits or encounters availability issues: `Groq unavailable → switching to OpenRouter free model`
-   - Providers hitting rate limits are automatically placed in a 60-second cooldown so subsequent requests don't waste time retrying failing endpoints.
-   - Non-retryable errors (invalid user request 400, safety block, auth error) halt immediately without cascading.
+5. In your Render service dashboard under **Environment**, configure your single API key:
+   - `GEMINI_API_KEY`: Your Google Gemini API key
 
 ---
 

@@ -1283,18 +1283,18 @@
                 </div>
             </div>
 
-            <!-- Multi-AI System Title -->
+            <!-- Single AI Engine Title -->
             <div style="font-size: 12px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                <span>⚡ AI Fallback Providers</span>
-                <span style="font-size: 10px; color: #64748B;">Priority: 1➔2➔3➔4➔5</span>
+                <span>⚡ AI Engine Configuration</span>
+                <span style="font-size: 10px; color: #00F0FF;">Single Primary API</span>
             </div>
 
-            <!-- 1. Google Gemini Provider Card -->
+            <!-- Google Gemini Engine Card -->
             <div class="provider-card" id="cardGemini">
                 <div class="provider-card-header">
                     <div class="provider-name">
-                        <input type="checkbox" id="geminiToggle" checked style="accent-color: #3B82F6;">
-                        <span>🔵 1. Google Gemini <span style="font-size: 10px; color: #60A5FA;">(Primary)</span></span>
+                        <input type="checkbox" id="geminiToggle" checked style="accent-color: #00F0FF;">
+                        <span>🔵 Google Gemini <span style="font-size: 10px; color: #60A5FA;">(Active AI Engine)</span></span>
                     </div>
                     <div style="display: flex; gap: 6px; align-items: center;">
                         <span class="provider-badge ready" id="badgeGemini">🟢 Active</span>
@@ -1308,127 +1308,18 @@
                             <option value="gemini-3.8-flash" selected>gemini-3.8-flash (Recommended)</option>
                             <option value="gemini-flash-latest">gemini-flash-latest</option>
                             <option value="gemini-3.6-flash">gemini-3.6-flash</option>
-                            <option value="gemini-3.5-flash">gemini-3.5-flash</option>
-                            <option value="gemini-3.7-flash">gemini-3.7-flash</option>
                         </select>
                     </div>
                     <div>
-                        <small style="color: #64748B; font-size: 10px;">Custom API Key (Optional)</small>
+                        <small style="color: #64748B; font-size: 10px;">Custom Gemini API Key (Optional)</small>
                         <input type="password" id="geminiKey" class="provider-input" placeholder="Server default active" autocomplete="new-password">
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Groq Cloud Provider Card (Ultra-Fast Free Llama 3) -->
-            <div class="provider-card" id="cardGroq">
-                <div class="provider-card-header">
-                    <div class="provider-name">
-                        <input type="checkbox" id="groqToggle" checked style="accent-color: #F97316;">
-                        <span>⚡ 2. Groq Cloud <span style="font-size: 10px; color: #FB923C;">(Ultra-Fast Llama 3)</span></span>
-                    </div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <span class="provider-badge" id="badgeGroq">⚪ Free Key</span>
-                        <button type="button" class="btn-test-prov" onclick="testProvider('groq')">🧪 Test</button>
-                    </div>
-                </div>
-                <div class="provider-fields">
-                    <div>
-                        <small style="color: #64748B; font-size: 10px;">Model</small>
-                        <select id="groqModel" class="provider-input">
-                            <option value="openai/gpt-oss-120b" selected>gpt-oss-120b (Groq)</option>
-                            <option value="qwen/qwen3.8-27b">qwen3.8-27b (Groq)</option>
-                            <option value="openai/gpt-oss-20b">gpt-oss-20b (Groq)</option>
-                            <option value="groq/compound-mini">compound-mini (Groq)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <small style="color: #64748B; font-size: 10px;">Free Groq API Key (gsk_...)</small>
-                        <input type="password" id="groqKey" class="provider-input" placeholder="gsk_..." autocomplete="new-password">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. Anthropic Claude Provider Card -->
-            <div class="provider-card" id="cardClaude">
-                <div class="provider-card-header">
-                    <div class="provider-name">
-                        <input type="checkbox" id="claudeToggle" checked style="accent-color: #D97706;">
-                        <span>🟠 3. Anthropic Claude <span style="font-size: 10px; color: #FBBF24;">(2nd Fallback)</span></span>
-                    </div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <span class="provider-badge" id="badgeClaude">⚪ Standby</span>
-                        <button type="button" class="btn-test-prov" onclick="testProvider('claude')">🧪 Test</button>
-                    </div>
-                </div>
-                <div class="provider-fields">
-                    <div>
-                        <small style="color: #64748B; font-size: 10px;">Model</small>
-                        <select id="claudeModel" class="provider-input">
-                            <option value="claude-3-5-haiku-20241022" selected>claude-3-5-haiku</option>
-                            <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet</option>
-                        </select>
-                    </div>
-                    <div>
-                        <small style="color: #64748B; font-size: 10px;">Anthropic API Key</small>
-                        <input type="password" id="claudeKey" class="provider-input" placeholder="sk-ant-..." autocomplete="new-password">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 4. OpenAI Provider Card -->
-            <div class="provider-card" id="cardOpenAI">
-                <div class="provider-card-header">
-                    <div class="provider-name">
-                        <input type="checkbox" id="openaiToggle" checked style="accent-color: #10B981;">
-                        <span>🟢 4. OpenAI <span style="font-size: 10px; color: #34D399;">(3rd Fallback)</span></span>
-                    </div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <span class="provider-badge" id="badgeOpenAI">⚪ Standby</span>
-                        <button type="button" class="btn-test-prov" onclick="testProvider('openai')">🧪 Test</button>
-                    </div>
-                </div>
-                <div class="provider-fields">
-                    <div>
-                        <small style="color: #64748B; font-size: 10px;">Model</small>
-                        <select id="openaiModel" class="provider-input">
-                            <option value="gpt-4o-mini" selected>gpt-4o-mini</option>
-                            <option value="gpt-4o">gpt-4o</option>
-                        </select>
-                    </div>
-                    <div>
-                        <small style="color: #64748B; font-size: 10px;">OpenAI API Key</small>
-                        <input type="password" id="openaiKey" class="provider-input" placeholder="sk-proj-..." autocomplete="new-password">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 5. Local Ollama Provider Card -->
-            <div class="provider-card" id="cardOllama">
-                <div class="provider-card-header">
-                    <div class="provider-name">
-                        <input type="checkbox" id="ollamaToggle" checked style="accent-color: #8B5CF6;">
-                        <span>🟣 5. Local Ollama <span style="font-size: 10px; color: #C084FC;">(Local AI)</span></span>
-                    </div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <span class="provider-badge" id="badgeOllama">⚪ Local Daemon</span>
-                        <button type="button" class="btn-test-prov" onclick="testProvider('ollama')">🧪 Test</button>
-                    </div>
-                </div>
-                <div class="provider-fields">
-                    <div>
-                        <small style="color: #64748B; font-size: 10px;">Model Name</small>
-                        <input type="text" id="ollamaModel" class="provider-input" value="llama3.2" placeholder="llama3.2 / qwen2.5">
-                    </div>
-                    <div>
-                        <small style="color: #64748B; font-size: 10px;">Base URL</small>
-                        <input type="text" id="ollamaUrl" class="provider-input" value="http://localhost:11434" placeholder="http://localhost:11434">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 5. Offline Knowledge Engine Note -->
-            <div style="padding: 6px 10px; background: rgba(0, 240, 255, 0.05); border: 1px dashed rgba(0, 240, 255, 0.2); border-radius: 6px; font-size: 11px; color: #94A3B8; margin-bottom: 14px;">
-                🛡️ <strong>5. Offline Engine:</strong> If all live cloud/local AI services are unavailable, VRIXA will seamlessly answer using the Offline Knowledge Base & Wikipedia.
+            <!-- Single API Guarantee Note -->
+            <div style="padding: 10px 12px; background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 8px; font-size: 11px; color: #94A3B8; margin-bottom: 14px; line-height: 1.5;">
+                ✨ <strong>Single API Mode:</strong> VRIXA runs exclusively on the ultra-fast <strong>Google Gemini API</strong> with instant multimodal intelligence. No third-party key clutter.
             </div>
 
             <button class="btn-close-modal" onclick="saveSettings()">💾 Save Configuration & Close</button>
@@ -1442,78 +1333,53 @@
         let speechRecognitionInstance = null;
         let isListening = false;
 
-        // Load saved Provider settings & API Keys on startup
+        // Load saved Gemini settings & API Key on startup
         function loadProviderSettings() {
-            // Provider settings and API keys are loaded from localStorage if set by the user
-
-            // Keys
-            if (localStorage.getItem('vrixa_key_gemini')) document.getElementById('geminiKey').value = localStorage.getItem('vrixa_key_gemini');
-            if (localStorage.getItem('vrixa_key_groq')) document.getElementById('groqKey').value = localStorage.getItem('vrixa_key_groq');
-            if (localStorage.getItem('vrixa_key_claude')) document.getElementById('claudeKey').value = localStorage.getItem('vrixa_key_claude');
-            if (localStorage.getItem('vrixa_key_openai')) document.getElementById('openaiKey').value = localStorage.getItem('vrixa_key_openai');
-            
-            // Models & URLs
-            if (localStorage.getItem('vrixa_model_gemini')) document.getElementById('geminiModel').value = localStorage.getItem('vrixa_model_gemini');
-            if (localStorage.getItem('vrixa_model_groq')) document.getElementById('groqModel').value = localStorage.getItem('vrixa_model_groq');
-            if (localStorage.getItem('vrixa_model_claude')) document.getElementById('claudeModel').value = localStorage.getItem('vrixa_model_claude');
-            if (localStorage.getItem('vrixa_model_openai')) document.getElementById('openaiModel').value = localStorage.getItem('vrixa_model_openai');
-            if (localStorage.getItem('vrixa_model_ollama')) document.getElementById('ollamaModel').value = localStorage.getItem('vrixa_model_ollama');
-            if (localStorage.getItem('vrixa_url_ollama')) document.getElementById('ollamaUrl').value = localStorage.getItem('vrixa_url_ollama');
-
-            // Toggles
-            if (localStorage.getItem('vrixa_toggle_gemini') !== null) document.getElementById('geminiToggle').checked = localStorage.getItem('vrixa_toggle_gemini') === 'true';
-            if (localStorage.getItem('vrixa_toggle_groq') !== null) document.getElementById('groqToggle').checked = localStorage.getItem('vrixa_toggle_groq') === 'true';
-            if (localStorage.getItem('vrixa_toggle_claude') !== null) document.getElementById('claudeToggle').checked = localStorage.getItem('vrixa_toggle_claude') === 'true';
-            if (localStorage.getItem('vrixa_toggle_openai') !== null) document.getElementById('openaiToggle').checked = localStorage.getItem('vrixa_toggle_openai') === 'true';
-            if (localStorage.getItem('vrixa_toggle_ollama') !== null) document.getElementById('ollamaToggle').checked = localStorage.getItem('vrixa_toggle_ollama') === 'true';
+            if (localStorage.getItem('vrixa_key_gemini')) {
+                document.getElementById('geminiKey').value = localStorage.getItem('vrixa_key_gemini');
+            }
+            if (localStorage.getItem('vrixa_model_gemini')) {
+                document.getElementById('geminiModel').value = localStorage.getItem('vrixa_model_gemini');
+            }
+            if (localStorage.getItem('vrixa_toggle_gemini') !== null) {
+                document.getElementById('geminiToggle').checked = localStorage.getItem('vrixa_toggle_gemini') === 'true';
+            }
 
             // Sync live status from server
-            fetch('/api/providers/status')
+            const customKey = document.getElementById('geminiKey') ? document.getElementById('geminiKey').value.trim() : '';
+            fetch(`/api/providers/status?gemini_key=${encodeURIComponent(customKey)}`)
                 .then(r => r.json())
                 .then(data => {
-                    (data.providers || []).forEach(p => {
-                        const bId = 'badge' + p.id.charAt(0).toUpperCase() + p.id.slice(1);
-                        const bEl = document.getElementById(bId);
-                        if (bEl) {
-                            if (p.configured) {
-                                bEl.className = 'provider-badge ready';
-                                bEl.innerText = '🟢 Ready';
-                            } else {
-                                bEl.className = 'provider-badge';
-                                bEl.innerText = p.id === 'ollama' ? '⚪ Local Daemon' : '⚪ No Key';
-                            }
+                    const bEl = document.getElementById('badgeGemini');
+                    if (bEl && data.providers && data.providers.length > 0) {
+                        const p = data.providers[0];
+                        if (p.configured) {
+                            bEl.className = 'provider-badge ready';
+                            bEl.innerText = '🟢 Ready';
+                        } else {
+                            bEl.className = 'provider-badge';
+                            bEl.innerText = '⚪ No Key';
                         }
-                    });
+                    }
                 })
                 .catch(() => {});
         }
 
         async function testProvider(providerId) {
-            const bId = 'badge' + providerId.charAt(0).toUpperCase() + providerId.slice(1);
-            const bEl = document.getElementById(bId);
+            const bEl = document.getElementById('badgeGemini');
             if (bEl) {
                 bEl.className = 'provider-badge testing';
                 bEl.innerText = '⏳ Testing...';
             }
 
-            const apiKey = providerId === 'gemini' ? document.getElementById('geminiKey').value.trim() :
-                           providerId === 'groq' ? document.getElementById('groqKey').value.trim() :
-                           providerId === 'claude' ? document.getElementById('claudeKey').value.trim() :
-                           providerId === 'openai' ? document.getElementById('openaiKey').value.trim() : '';
-
-            const model = providerId === 'gemini' ? document.getElementById('geminiModel').value :
-                          providerId === 'groq' ? document.getElementById('groqModel').value :
-                          providerId === 'claude' ? document.getElementById('claudeModel').value :
-                          providerId === 'openai' ? document.getElementById('openaiModel').value :
-                          document.getElementById('ollamaModel').value;
-
-            const baseUrl = providerId === 'ollama' ? document.getElementById('ollamaUrl').value.trim() : '';
+            const apiKey = document.getElementById('geminiKey') ? document.getElementById('geminiKey').value.trim() : '';
+            const model = document.getElementById('geminiModel') ? document.getElementById('geminiModel').value : 'gemini-3.8-flash';
 
             try {
                 const res = await fetch('/api/providers/test', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ provider: providerId, api_key: apiKey, model, base_url: baseUrl })
+                    body: JSON.stringify({ provider: 'gemini', api_key: apiKey, model: model })
                 });
                 const data = await res.json();
                 if (bEl) {
@@ -1522,7 +1388,7 @@
                         bEl.innerText = `✅ Ready (${data.response_time_ms}ms)`;
                     } else {
                         bEl.className = 'provider-badge error';
-                        bEl.innerText = `❌ ${data.message.substring(0, 18)}`;
+                        bEl.innerText = `❌ Error`;
                         bEl.title = data.message;
                     }
                 }
@@ -1830,33 +1696,13 @@
             addBubble(msg || "Analyze this image", 'user', null, sentImage);
 
             const customKeys = {
-                gemini: document.getElementById('geminiKey') ? document.getElementById('geminiKey').value.trim() : (localStorage.getItem('vrixa_key_gemini') || ''),
-                groq: document.getElementById('groqKey') ? document.getElementById('groqKey').value.trim() : (localStorage.getItem('vrixa_key_groq') || ''),
-                claude: document.getElementById('claudeKey') ? document.getElementById('claudeKey').value.trim() : (localStorage.getItem('vrixa_key_claude') || ''),
-                openai: document.getElementById('openaiKey') ? document.getElementById('openaiKey').value.trim() : (localStorage.getItem('vrixa_key_openai') || '')
+                gemini: document.getElementById('geminiKey') ? document.getElementById('geminiKey').value.trim() : (localStorage.getItem('vrixa_key_gemini') || '')
             };
 
             const providerConfigs = {
                 gemini: {
                     enabled: document.getElementById('geminiToggle') ? document.getElementById('geminiToggle').checked : true,
                     model: document.getElementById('geminiModel') ? document.getElementById('geminiModel').value : 'gemini-3.8-flash'
-                },
-                groq: {
-                    enabled: document.getElementById('groqToggle') ? document.getElementById('groqToggle').checked : true,
-                    model: document.getElementById('groqModel') ? document.getElementById('groqModel').value : 'llama-3.3-70b-versatile'
-                },
-                claude: {
-                    enabled: document.getElementById('claudeToggle') ? document.getElementById('claudeToggle').checked : true,
-                    model: document.getElementById('claudeModel') ? document.getElementById('claudeModel').value : 'claude-3-5-haiku-20241022'
-                },
-                openai: {
-                    enabled: document.getElementById('openaiToggle') ? document.getElementById('openaiToggle').checked : true,
-                    model: document.getElementById('openaiModel') ? document.getElementById('openaiModel').value : 'gpt-4o-mini'
-                },
-                ollama: {
-                    enabled: document.getElementById('ollamaToggle') ? document.getElementById('ollamaToggle').checked : true,
-                    model: document.getElementById('ollamaModel') ? document.getElementById('ollamaModel').value : 'llama3.2',
-                    base_url: document.getElementById('ollamaUrl') ? document.getElementById('ollamaUrl').value : 'http://localhost:11434'
                 }
             };
 
@@ -1976,31 +1822,15 @@
         }
 
         function saveSettings() {
-            // Save Keys
+            // Save Gemini Key
             const gKey = document.getElementById('geminiKey') ? document.getElementById('geminiKey').value.trim() : '';
-            const groqKey = document.getElementById('groqKey') ? document.getElementById('groqKey').value.trim() : '';
-            const cKey = document.getElementById('claudeKey') ? document.getElementById('claudeKey').value.trim() : '';
-            const oKey = document.getElementById('openaiKey') ? document.getElementById('openaiKey').value.trim() : '';
-
             if (gKey) localStorage.setItem('vrixa_key_gemini', gKey); else localStorage.removeItem('vrixa_key_gemini');
-            if (groqKey) localStorage.setItem('vrixa_key_groq', groqKey); else localStorage.removeItem('vrixa_key_groq');
-            if (cKey) localStorage.setItem('vrixa_key_claude', cKey); else localStorage.removeItem('vrixa_key_claude');
-            if (oKey) localStorage.setItem('vrixa_key_openai', oKey); else localStorage.removeItem('vrixa_key_openai');
 
-            // Save Models
+            // Save Gemini Model
             if (document.getElementById('geminiModel')) localStorage.setItem('vrixa_model_gemini', document.getElementById('geminiModel').value);
-            if (document.getElementById('groqModel')) localStorage.setItem('vrixa_model_groq', document.getElementById('groqModel').value);
-            if (document.getElementById('claudeModel')) localStorage.setItem('vrixa_model_claude', document.getElementById('claudeModel').value);
-            if (document.getElementById('openaiModel')) localStorage.setItem('vrixa_model_openai', document.getElementById('openaiModel').value);
-            if (document.getElementById('ollamaModel')) localStorage.setItem('vrixa_model_ollama', document.getElementById('ollamaModel').value);
-            if (document.getElementById('ollamaUrl')) localStorage.setItem('vrixa_url_ollama', document.getElementById('ollamaUrl').value);
 
-            // Save Toggles
+            // Save Toggle
             if (document.getElementById('geminiToggle')) localStorage.setItem('vrixa_toggle_gemini', document.getElementById('geminiToggle').checked);
-            if (document.getElementById('groqToggle')) localStorage.setItem('vrixa_toggle_groq', document.getElementById('groqToggle').checked);
-            if (document.getElementById('claudeToggle')) localStorage.setItem('vrixa_toggle_claude', document.getElementById('claudeToggle').checked);
-            if (document.getElementById('openaiToggle')) localStorage.setItem('vrixa_toggle_openai', document.getElementById('openaiToggle').checked);
-            if (document.getElementById('ollamaToggle')) localStorage.setItem('vrixa_toggle_ollama', document.getElementById('ollamaToggle').checked);
 
             toggleModal(false);
         }
