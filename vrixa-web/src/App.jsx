@@ -162,8 +162,20 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSidebarOpen(false);
+        setSettingsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className="app-container">
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       <Sidebar 
         isOpen={sidebarOpen} 
         closeSidebar={() => setSidebarOpen(false)}

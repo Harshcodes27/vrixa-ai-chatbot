@@ -1967,10 +1967,32 @@
             }
         }
 
+        function cleanTextForSpeech(text) {
+            if (!text) return "";
+            return text
+                // 1. Remove code blocks and inline code
+                .replace(/```[\s\S]*?```/g, '')
+                .replace(/`[^`]*`/g, '')
+                // 2. Remove markdown images and extract link text
+                .replace(/!\[.*?\]\(.*?\)/g, '')
+                .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+                // 3. Remove URLs
+                .replace(/https?:\/\/\S+/g, '')
+                // 4. Remove all emojis and pictographs so speech synthesis does NOT speak emoji names
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F1E6}-\u{1F1FF}]/gu, '')
+                .replace(/\p{Extended_Pictographic}/gu, '')
+                // 5. Remove markdown symbols (*, #, _, ~, •, >)
+                .replace(/[*#_~•>]/g, '')
+                // 6. Normalize extra spaces
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
         function speak(text) {
             if (!document.getElementById('voiceToggle').checked) return;
-            // Clean markdown formatting symbols (*, #, _, `, •) and URLs for natural voice output
-            let cleanText = text.replace(/[*#_`•]/g, '').replace(/https?:\/\/\S+/g, '').trim();
+            const cleanText = cleanTextForSpeech(text);
+            if (!cleanText) return;
+            synth.cancel();
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.rate = parseFloat(document.getElementById('speechRate').value);
             synth.speak(utterance);
